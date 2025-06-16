@@ -23,6 +23,9 @@ class CustomerController extends Controller
     /**
      * Store a newly created resource in storage.
      */
+    /**
+     * Store a newly created resource in storage.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -31,14 +34,40 @@ class CustomerController extends Controller
             'phone' => 'required|string|max:20'
         ]);
 
+        $phone = $validated['phone'];
+        $apiKey = 'd1c88843caea406caefaed39a15d11df';
+
+        try {
+            $ch = curl_init();
+
+            curl_setopt($ch, CURLOPT_URL, "https://phonevalidation.abstractapi.com/v1/?api_key={$apiKey}&phone={$phone}");
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+
+            $response = curl_exec($ch);
+            curl_close($ch);
+
+            $phoneData = json_decode($response, true);
+
+            if (isset($phoneData['valid']) && $phoneData['valid'] === false) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid phone number',
+                    'details' => $phoneData
+                ], 422);
+            }
+        } catch (\Exception $e) {
+        }
+
         $customer = Customer::create($validated);
 
-        return response([
+        return response()->json([
             'success' => true,
             'message' => 'Customer Created',
             'data' => $customer
         ], 201);
     }
+
 
     /**
      * Display the specified resource.
@@ -53,7 +82,6 @@ class CustomerController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        //
         $customer = Customer::find($id);
         if (!$customer) {
             return response([
@@ -68,6 +96,35 @@ class CustomerController extends Controller
             'phone' => 'string|max:20'
         ]);
 
+        // Validasi nomor telepon jika ada dalam request
+        if (isset($validated['phone'])) {
+            $phone = $validated['phone'];
+            $apiKey = 'd1c88843caea406caefaed39a15d11df';
+
+            try {
+                $ch = curl_init();
+
+                curl_setopt($ch, CURLOPT_URL, "https://phonevalidation.abstractapi.com/v1/?api_key={$apiKey}&phone={$phone}");
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+
+                $response = curl_exec($ch);
+                curl_close($ch);
+
+                $phoneData = json_decode($response, true);
+
+                if (isset($phoneData['valid']) && $phoneData['valid'] === false) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Invalid phone number',
+                        'details' => $phoneData
+                    ], 422);
+                }
+            } catch (\Exception $e) {
+                // Jika API validasi gagal, lanjutkan proses
+            }
+        }
+
         $customer->update($validated);
 
         return response()->json([
@@ -75,8 +132,8 @@ class CustomerController extends Controller
             'message' => 'Customer updated successfully',
             'data' => $customer
         ]);
-
     }
+
 
     /**
      * Remove the specified resource from storage.
